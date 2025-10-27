@@ -1,6 +1,27 @@
 version: "3.9"
 
 services:
+  node-app:
+    build: ./server
+    container_name: nodeapp
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./server/:/app/
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=mysql
+      - DB_USER=demo
+      - DB_PASS=demopass
+      - DB_NAME=demoapp
+    depends_on:
+      - mysql
+    networks:
+      - traefik
+      - internal
+
   traefik:
     image: traefik:v2.9
     command:
@@ -11,7 +32,7 @@ services:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.email=you@example.com"
-      - "--certificatesresolvers.myresolver.acme.storage=acme.json"
+      - "--certificatesresolvers.myresolver.acme.storage=acme/acme.json"
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
 
     working_dir: /app
@@ -20,7 +41,47 @@ services:
       - "444:443"
       - "8088:8080"
     volumes:
-      - "./:/app"
-      # - "./traefik.yml:/traefik.yml:ro"
-      # - "./dynamic.yml:/dynamic.yml:ro"
-      # - "./acme.json:/acme.json"
+      - "./traefik:/app"
+    networks:
+      - traefik
+
+  mysql:
+    image: mysql:8.0
+    container_name: demo-mysql
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: demosite
+      MYSQL_USER: demo
+      MYSQL_PASSWORD: demopass
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+    networks:
+      - internal
+      - bridge
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: demo-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "88:80"
+    volumes:
+      - ./phpmyadmin/data:/var/lib/phpmyadmin
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+      - PMA_ARBITRARY=1
+    networks:
+      - internal
+      - bridge
+
+networks:
+  traefik:
+    name: traefik
+  internal:
+    internal: true
+  bridge:
+    driver: bridge

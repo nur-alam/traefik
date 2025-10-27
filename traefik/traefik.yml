@@ -1,0 +1,22 @@
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+api:
+  dashboard: true
+  insecure: true
+
+providers:
+  file:
+    filename: dynamic.yml
+    watch: true
+
+certificatesResolvers:
+  myresolver:
+    acme:
+      email: you@example.com
+      storage: acme.json
+      httpChallenge:
+        entryPoint: web
