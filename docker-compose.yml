@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  traefik:
+    image: traefik:v2.9
+    command:
+      - "--api.insecure=true"
+      - "--dashboard=true"
+      - "--providers.file.filename=dynamic.yml"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.email=you@example.com"
+      - "--certificatesresolvers.myresolver.acme.storage=acme.json"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+
+    working_dir: /app
+    ports:
+      - "90:80"
+      - "444:443"
+      - "8088:8080"
+    volumes:
+      - "./:/app"
+      # - "./traefik.yml:/traefik.yml:ro"
+      # - "./dynamic.yml:/dynamic.yml:ro"
+      # - "./acme.json:/acme.json"
