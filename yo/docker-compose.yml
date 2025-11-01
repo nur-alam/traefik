@@ -1,0 +1,106 @@
+# docker-compose.yml
+services:
+  traefik:
+    image: traefik:v3.4
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik:/etc/traefik/dynamic
+    networks:
+      - traefik
+  node-app:
+    build: ./server
+    container_name: node-app
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.node-app.rule=Host(`node-app.localhost`)"
+      - "traefik.http.routers.node-app.entrypoints=web"
+      - "traefik.http.services.node-app.loadbalancer.server.port=4000"
+      - "traefik.docker.network=traefik"
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=mysql
+      - DB_ROOT_PASSWORD=root
+      - DB_USER=demo
+      - DB_PASS=demopass
+      - DB_NAME=demoapp
+      - DOMAIN_SUFFIX=tutor.site
+      - TRAEFIK_NETWORK=traefik
+    ports:
+      - "4000:4000"
+    depends_on:
+      - mysql
+    volumes:
+      - ./server/:/app/
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik
+  mysql:
+    image: mysql:8.0
+    container_name: demo-mysql
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: demoapp
+      MYSQL_USER: demo
+      MYSQL_PASSWORD: demopass
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+    networks:
+      - traefik
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: demo-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "90:80"
+    depends_on:
+      - mysql
+    volumes:
+      - ./phpmyadmin/data:/var/lib/phpmyadmin
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+      - PMA_ARBITRARY=1
+    networks:
+      - traefik
+
+  wordpress-base:
+    build: 
+      context: ./wpbase
+      dockerfile: Dockerfile
+    image: wordpress-base
+    container_name: wordpress-base
+    depends_on:
+      - mysql
+    restart: "no"
+  # nginx:
+  #   image: nginx:1.19-alpine
+  #   container_name: nginx
+  #   restart: unless-stopped
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.nginx.rule=Host(`nginx.localhost`)"
+  #     - "traefik.http.routers.nginx.entrypoints=web"
+  #     - "traefik.http.services.nginx.loadbalancer.server.port=80"
+  #   ports:
+  #     - "8081:80"
+  #   command: [nginx-debug, '-g', 'daemon off;']
+  #   networks:
+  #     - traefik
+
+networks:
+  traefik:
+    name: traefik

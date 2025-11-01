@@ -1,0 +1,21 @@
+# http:
+#   routers:
+#     node-app:
+#       rule: "Host(`node-app.localhost`)"
+#       entryPoints:
+#         - web
+#       service: node-app
+#     nginx:
+#       rule: "Host(`nginx.localhost`)"
+#       entryPoints:
+#         - web
+#       service: nginx
+#   services:
+#     node-app:
+#       loadBalancer:
+#         servers:
+#           - url: "http://nodeapp:4000/"
+#     nginx:
+#       loadBalancer:
+#         servers:
+#           - url: "http://nginx:80/"
