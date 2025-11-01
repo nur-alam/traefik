@@ -11,7 +11,7 @@ const {
 	DB_ROOT_PASSWORD = 'root',
 	DB_HOST = 'mysql',
 	TRAEFIK_NETWORK = 'traefik',
-	DOMAIN_SUFFIX = 'tutor.site',
+	DOMAIN_SUFFIX = 'tutor.localhost',
 } = process.env;
 
 const pool = mysql.createPool({

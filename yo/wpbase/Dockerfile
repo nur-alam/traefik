@@ -24,7 +24,7 @@ docker-entrypoint.sh apache2-foreground &\n\
 \n\
 # Wait for WordPress to initialize\n\
 echo "Waiting for WordPress to initialize..."\n\
-sleep 30\n\
+sleep 10\n\
 \n\
 # Try to activate the Tutor plugin\n\
 echo "Attempting to activate Tutor plugin..."\n\

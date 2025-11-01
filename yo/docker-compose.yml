@@ -34,7 +34,7 @@ services:
       - DB_USER=demo
       - DB_PASS=demopass
       - DB_NAME=demoapp
-      - DOMAIN_SUFFIX=tutor.site
+      - DOMAIN_SUFFIX=tutor.localhost
       - TRAEFIK_NETWORK=traefik
     ports:
       - "4000:4000"
