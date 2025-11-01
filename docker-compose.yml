@@ -16,8 +16,16 @@ services:
       - DB_USER=demo
       - DB_PASS=demopass
       - DB_NAME=demoapp
+      - DOMAIN_SUFFIX=demo.localhost
+      - TRAEFIK_NETWORK=traefik
+      - MYSQL_ROOT_PASSWORD=root
     depends_on:
       - mysql
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.node.rule=Host(`demo.localhost`)"
+      - "traefik.http.routers.node.entrypoints=web"
+      - "traefik.docker.network=traefik"
     networks:
       - traefik
       - internal
@@ -26,9 +34,10 @@ services:
     image: traefik:v2.9
     command:
       - "--api.insecure=true"
-      - "--dashboard=true"
-      - "--providers.file.filename=dynamic.yml"
+      - "--api.dashboard=true"
       - "--providers.file.watch=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.email=you@example.com"
@@ -37,13 +46,15 @@ services:
 
     working_dir: /app
     ports:
-      - "90:80"
-      - "444:443"
-      - "8088:8080"
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
     volumes:
-      - "./traefik:/app"
+      - "./traefik:/etc/traefik/dynamic"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
     networks:
       - traefik
+      - internal
 
   mysql:
     image: mysql:8.0
@@ -53,7 +64,7 @@ services:
       - "3307:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: demosite
+      MYSQL_DATABASE: demoapp
       MYSQL_USER: demo
       MYSQL_PASSWORD: demopass
     volumes:
@@ -62,21 +73,25 @@ services:
       - internal
       - bridge
 
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    container_name: demo-phpmyadmin
-    restart: unless-stopped
-    ports:
-      - "88:80"
-    volumes:
-      - ./phpmyadmin/data:/var/lib/phpmyadmin
-    environment:
-      - PMA_HOST=mysql
-      - PMA_PORT=3306
-      - PMA_ARBITRARY=1
-    networks:
-      - internal
-      - bridge
+  # phpmyadmin:
+  #   image: phpmyadmin/phpmyadmin
+  #   container_name: demo-phpmyadmin
+  #   restart: unless-stopped
+  #   ports:
+  #     - "88:80"
+  #   volumes:
+  #     - ./phpmyadmin/data:/var/lib/phpmyadmin
+  #   environment:
+  #     - PMA_HOST=mysql
+  #     - PMA_PORT=3306
+  #     - PMA_ARBITRARY=1
+  #   networks:
+  #     - internal
+  #     - bridge
+  wordpress-puller:
+    image: wordpress:latest
+    container_name: wordpress-puller
+    command: echo "WordPress image pulled successfully"
 
 networks:
   traefik:
