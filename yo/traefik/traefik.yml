@@ -9,6 +9,10 @@ api:
   insecure: true
 
 providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: "traefik"
   file:
     filename: ./dynamic.yml
     watch: true

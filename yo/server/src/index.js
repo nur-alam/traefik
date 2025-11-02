@@ -2,7 +2,9 @@ import express from 'express';
 import Docker from 'dockerode';
 import mysql from 'mysql2/promise';
 import { nanoid } from 'nanoid';
-import docker, { execShell } from "./docker.js";
+import cron from 'node-cron';
+import cleanupExpiredSites from './cleanup.js';
+import docker, { execShell } from './docker.js';
 
 const app = express();
 app.use(express.json());
@@ -63,6 +65,10 @@ app.post('/create-site', async (req, res) => {
 				[`traefik.http.routers.${id}.service`]: `${id}`,
 				[`traefik.http.services.${id}.loadbalancer.server.port`]: '80',
 				'traefik.docker.network': TRAEFIK_NETWORK,
+				'demoserver.created_at': Date.now().toString(),
+				'demoserver.username': username,
+				'demoserver.dbname': dbName,
+				'demoserver.dbuser': dbUser,
 			},
 			HostConfig: {
 				Memory: 512 * 1024 * 1024, // 512MB
@@ -77,9 +83,9 @@ app.post('/create-site', async (req, res) => {
 		await container.start();
 
 		// 3️⃣ Wait for WordPress to be fully ready
-		console.log("⏳ Waiting for WordPress to be ready...");
-		// wait 10 sec for WordPress to be ready
-		await new Promise(resolve => setTimeout(resolve, 5000));
+		console.log('⏳ Waiting for WordPress to be ready...');
+		// wait 5 sec for WordPress to be ready
+		await new Promise((resolve) => setTimeout(resolve, 5000));
 
 		res.json({
 			success: true,
@@ -87,11 +93,30 @@ app.post('/create-site', async (req, res) => {
 			db: dbName,
 			db_user: dbUser,
 			db_pass: dbPass,
-			admin_user: "admin",
+			admin_user: 'admin',
 			admin_pass: dbPass,
 		});
 	} catch (err) {
 		console.error('❌ Error creating site:', err);
+		res.status(500).json({ error: err.message });
+	}
+});
+
+cron.schedule('0 */1 * * *', async () => {
+	try {
+		await cleanupExpiredSites();
+		res.json({ success: true });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+});
+
+// Remove container after 10 min which is create by /create-site api using cron job
+app.post('/cleanup', async (req, res) => {
+	try {
+		await cleanupExpiredSites();
+		res.json({ success: true });
+	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}
 });

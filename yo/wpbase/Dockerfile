@@ -1,7 +1,7 @@
 FROM wordpress:latest
 
 # Copy the pre-installer mu plugin
-COPY mu-plugins/pre-install.php /var/www/html/wp-content/mu-plugins/
+# COPY mu-plugins/pre-install.php /var/www/html/wp-content/mu-plugins/
 
 # Install unzip utility and WP-CLI
 RUN apt-get update && apt-get install -y unzip curl && rm -rf /var/lib/apt/lists/* && \
