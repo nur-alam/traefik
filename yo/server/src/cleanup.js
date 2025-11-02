@@ -1,5 +1,4 @@
-import Docker from 'dockerode';
-import docker, { execShell } from './docker.js';
+import docker from './docker.js';
 
 // Run every hour
 export default async function cleanupExpiredSites() {
@@ -24,16 +23,17 @@ export default async function cleanupExpiredSites() {
 
 				// Stop and remove container
 				const container = docker.getContainer(c.Id);
-				await container.stop().catch(() => {});
+				await container.stop().catch(() => { });
 				await container.remove({ v: true, force: true });
 
 				// Drop MySQL database and user
-				await execShell(`
-		  docker exec mysql mysql -uroot -p${DB_ROOT_PASSWORD} -e "
-		  DROP DATABASE IF EXISTS ${dbName};
-		  DROP USER IF EXISTS '${dbUser}'@'%';
-		  FLUSH PRIVILEGES;"
-		`);
+				const mysqlContainer = docker.getContainer('demo-mysql');
+				const exec = await mysqlContainer.exec({
+					Cmd: ['mysql', '-uroot', `-p${DB_ROOT_PASSWORD}`, '-e', `DROP DATABASE IF EXISTS ${dbName}; DROP USER IF EXISTS '${dbUser}'@'%'; FLUSH PRIVILEGES;`],
+					AttachStdout: true,
+					AttachStderr: true
+				});
+				exec.start();
 			}
 		}
 
