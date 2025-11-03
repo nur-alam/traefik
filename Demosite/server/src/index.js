@@ -27,6 +27,20 @@ const {
 	DOMAIN_SUFFIX = 'tutor.localhost',
 } = process.env;
 
+// SSL utility functions
+const verifySSL = async (domain) => {
+	try {
+		const response = await fetch(`https://${domain}`, {
+			method: 'HEAD',
+			timeout: 5000,
+		});
+		return response.ok;
+	} catch (error) {
+		console.log(`⚠️ SSL verification failed for ${domain}:`, error.message);
+		return false;
+	}
+};
+
 const pool = mysql.createPool({
 	host: DB_HOST,
 	user: 'root',
@@ -57,7 +71,7 @@ app.get('/sites', async (req, res) => {
 			return {
 				id: container.Id.substring(0, 12),
 				name: container.Names[0].substring(1), // Remove leading slash
-				url: subdomain ? `http://${subdomain}` : 'N/A',
+				url: subdomain ? `https://${subdomain}` : 'N/A',
 				username: labels['demoserver.username'] || 'Unknown',
 				created_at: labels['demoserver.created_at'],
 				dbname: labels['demoserver.dbname'],
@@ -105,13 +119,20 @@ app.post('/create-site', async (req, res) => {
 				`WP_ADMIN_USER=admin`,
 				`WP_ADMIN_PASS=${dbPass}`,
 				`WP_ADMIN_EMAIL=admin@${subdomain}`,
-				`WP_SITE_URL=http://${subdomain}`,
+				`WP_SITE_URL=https://${subdomain}`,
 			],
 			Labels: {
 				'traefik.enable': 'true',
+				// HTTP router (redirects to HTTPS)
 				[`traefik.http.routers.${id}.rule`]: `Host(\`${subdomain}\`)`,
 				[`traefik.http.routers.${id}.entrypoints`]: 'web',
-				[`traefik.http.routers.${id}.service`]: `${id}`,
+				[`traefik.http.routers.${id}.middlewares`]: 'redirect-to-https',
+				// HTTPS router
+				[`traefik.http.routers.${id}-secure.rule`]: `Host(\`${subdomain}\`)`,
+				[`traefik.http.routers.${id}-secure.entrypoints`]: 'websecure',
+				[`traefik.http.routers.${id}-secure.tls`]: 'true',
+				[`traefik.http.routers.${id}-secure.service`]: `${id}`,
+				// Service configuration
 				[`traefik.http.services.${id}.loadbalancer.server.port`]: '80',
 				'traefik.docker.network': TRAEFIK_NETWORK,
 				'demoserver.created_at': Date.now().toString(),
@@ -136,9 +157,14 @@ app.post('/create-site', async (req, res) => {
 		// wait 5 sec for WordPress to be ready
 		await new Promise((resolve) => setTimeout(resolve, 5000));
 
+		// 4️⃣ Verify SSL is working
+		console.log('🔒 Verifying SSL...');
+		const sslWorking = await verifySSL(subdomain);
+		
 		res.json({
 			success: true,
-			url: `http://${subdomain}`,
+			url: `https://${subdomain}`,
+			ssl_enabled: sslWorking,
 			db: dbName,
 			db_user: dbUser,
 			db_pass: dbPass,
