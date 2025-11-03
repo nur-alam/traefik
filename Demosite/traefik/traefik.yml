@@ -1,6 +1,11 @@
 entryPoints:
   web:
     address: ":80"
+    http:
+      redirections:
+        entrypoint:
+          to: websecure
+          scheme: https
   websecure:
     address: ":443"
 
@@ -14,5 +19,7 @@ providers:
     exposedByDefault: false
     network: "traefik"
   file:
-    filename: ./dynamic.yml
+    filename: /etc/traefik/dynamic.yml
     watch: true
+
+# mkcert certificates for localhost development

@@ -12,6 +12,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml
+      - ./traefik/certs:/etc/traefik/certs:ro
     networks:
       - traefik
   node-app:
@@ -20,8 +21,9 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.node-app.rule=Host(`node-app.localhost`)"
-      - "traefik.http.routers.node-app.entrypoints=web"
+      - "traefik.http.routers.node-app-secure.rule=Host(`node-app.localhost`)"
+      - "traefik.http.routers.node-app-secure.entrypoints=websecure"
+      - "traefik.http.routers.node-app-secure.tls=true"
       - "traefik.http.services.node-app.loadbalancer.server.port=4000"
       - "traefik.docker.network=traefik"
     environment:
@@ -87,11 +89,12 @@ services:
     image: nginx:1.19-alpine
     container_name: nginx
     restart: unless-stopped
-    # labels:
-    #   - "traefik.enable=true"
-    #   - "traefik.http.routers.nginx.rule=Host(`nginx.localhost`)"
-    #   - "traefik.http.routers.nginx.entrypoints=web"
-    #   - "traefik.http.services.nginx.loadbalancer.server.port=80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx-secure.rule=Host(`nginx.localhost`)"
+      - "traefik.http.routers.nginx-secure.entrypoints=websecure"
+      - "traefik.http.routers.nginx-secure.tls=true"
+      - "traefik.http.services.nginx.loadbalancer.server.port=80"
     ports:
       - "8081:80"
     command: [nginx-debug, '-g', 'daemon off;']

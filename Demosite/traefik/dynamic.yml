@@ -1,21 +1,31 @@
 http:
   routers:
-    node-app:
+    node-app-secure:
       rule: "Host(`node-app.localhost`)"
       entryPoints:
-        - web
+        - websecure
       service: node-app
-    nginx:
+      tls: {}
+    nginx-secure:
       rule: "Host(`nginx.localhost`)"
       entryPoints:
-        - web
+        - websecure
       service: nginx
+      tls: {}
   services:
     node-app:
       loadBalancer:
         servers:
-          - url: "http://nodeapp:4000/"
+          - url: "http://node-app:4000/"
     nginx:
       loadBalancer:
         servers:
           - url: "http://nginx:80/"
+
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/node-app.localhost+4.pem
+      keyFile: /etc/traefik/certs/node-app.localhost+4-key.pem
+  options:
+    default:
+      minVersion: "VersionTLS12"
