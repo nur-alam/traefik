@@ -1,13 +1,24 @@
 import express from 'express';
-import Docker from 'dockerode';
 import mysql from 'mysql2/promise';
 import { nanoid } from 'nanoid';
 import cron from 'node-cron';
 import cleanupExpiredSites from './cleanup.js';
-import docker, { execShell } from './docker.js';
+import docker from './docker.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
+
+// Set up EJS as template engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '../views'));
+
+// Serve static files
+app.use(express.static(path.join(__dirname, '../public')));
 
 const {
 	DB_ROOT_PASSWORD = 'root',
@@ -22,8 +33,46 @@ const pool = mysql.createPool({
 	password: DB_ROOT_PASSWORD,
 });
 
+// Render the main UI page
 app.get('/', (req, res) => {
-	res.send('Server running on port 4000 👋');
+	res.render('index');
+});
+
+// API endpoint to get all active sites
+app.get('/sites', async (req, res) => {
+	try {
+		const containers = await docker.listContainers({
+			all: false,
+			filters: {
+				label: ['demoserver.created_at']
+			}
+		});
+
+		const sites = containers.map(container => {
+			const labels = container.Labels;
+			const subdomainRule = Object.keys(labels)
+				.find(key => key.startsWith('traefik.http.routers.') && key.endsWith('.rule'));
+			const subdomain = subdomainRule ? labels[subdomainRule]?.match(/Host\(`([^`]+)`\)/)?.[1] : null;
+
+			return {
+				id: container.Id.substring(0, 12),
+				name: container.Names[0].substring(1), // Remove leading slash
+				url: subdomain ? `http://${subdomain}` : 'N/A',
+				username: labels['demoserver.username'] || 'Unknown',
+				created_at: labels['demoserver.created_at'],
+				dbname: labels['demoserver.dbname'],
+				status: container.State
+			};
+		});
+
+		// Sort by creation time (newest first)
+		sites.sort((a, b) => parseInt(b.created_at) - parseInt(a.created_at));
+
+		res.json({ success: true, sites });
+	} catch (error) {
+		console.error('❌ Error fetching sites:', error);
+		res.status(500).json({ success: false, error: error.message });
+	}
 });
 
 app.post('/create-site', async (req, res) => {
