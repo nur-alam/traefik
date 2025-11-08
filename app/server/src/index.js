@@ -5,12 +5,12 @@ app.use(express.json());
 
 // Render the main UI page
 app.get('/', (req, res) => {
-	res.send('Hello Universe!');
+	res.send(`Hello Universe! Port: ${process.env.PORT || 3000}`);
 });
 
 // Render the health check endpoint
 app.get('/api/health', (req, res) => {
-	res.send('Healthy!');
+	res.send(`Healthy! Port: ${process.env.PORT || 3000}`);
 });
 
 app.listen(process.env.PORT || 3000, () => {

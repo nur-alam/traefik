@@ -1,0 +1,22 @@
+http:
+  routers:
+    traefik-dashboard:
+      entryPoints:
+        - web
+      service: api@internal
+      rule: Host(`traefik.localhost`)
+    
+    node-app:
+      entryPoints:
+        - websecure
+      service: node-app
+      rule: Host(`wptriggermail.com`) || Host(`www.wptriggermail.com`)
+      tls:
+        certResolver: letsencrypt
+  
+  services:
+    node-app:
+      loadBalancer:
+        servers:
+          - url: "http://node-app-1:3000"
+          - url: "http://node-app-2:4000"
