@@ -82,21 +82,6 @@ services:
     depends_on:
       - mysql
     restart: "no"
-  nginx:
-    image: nginx:1.19-alpine
-    container_name: nginx
-    restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.nginx-secure.rule=Host(`nginx.localhost`)"
-      - "traefik.http.routers.nginx-secure.entrypoints=websecure"
-      - "traefik.http.routers.nginx-secure.tls=true"
-      - "traefik.http.services.nginx.loadbalancer.server.port=80"
-    ports:
-      - "8081:80"
-    command: [nginx-debug, '-g', 'daemon off;']
-    networks:
-      - traefik
 
 networks:
   traefik:

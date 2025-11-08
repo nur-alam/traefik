@@ -3,7 +3,7 @@ entryPoints:
     address: ":80"
     http:
       redirections:
-        entrypoint:
+        entryPoint:
           to: websecure
           scheme: https
   websecure:
@@ -22,4 +22,10 @@ providers:
     filename: /etc/traefik/dynamic.yml
     watch: true
 
-# mkcert certificates for localhost development
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: nuralam862@gmail.com
+      storage: /etc/traefik/acme.json
+      httpChallenge:
+        entryPoint: web

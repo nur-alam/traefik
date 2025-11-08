@@ -1,36 +1,21 @@
 http:
-  middlewares:
-    redirect-to-https:
-      redirectScheme:
-        scheme: https
-        permanent: true
   routers:
-    node-app-secure:
-      rule: "Host(`node-app.localhost`)"
+    traefik-dashboard:
+      entryPoints:
+        - web
+      service: api@internal
+      rule: Host(`traefik.localhost`)
+    
+    node-app:
       entryPoints:
         - websecure
       service: node-app
-      tls: {}
-    nginx-secure:
-      rule: "Host(`nginx.localhost`)"
-      entryPoints:
-        - websecure
-      service: nginx
-      tls: {}
+      rule: Host(`wptriggermail.com`) || Host(`www.wptriggermail.com`)
+      tls:
+        certResolver: letsencrypt
+  
   services:
     node-app:
       loadBalancer:
         servers:
-          - url: "http://node-app:4000/"
-    nginx:
-      loadBalancer:
-        servers:
-          - url: "http://nginx:80/"
-
-tls:
-  certificates:
-    - certFile: /etc/traefik/certs/_wildcard.tutor.localhost+6.pem
-      keyFile: /etc/traefik/certs/_wildcard.tutor.localhost+6-key.pem
-  options:
-    default:
-      minVersion: "VersionTLS12"
+          - url: "http://node-app-1:3000"
