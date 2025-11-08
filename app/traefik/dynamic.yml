@@ -1,0 +1,19 @@
+http:
+  routers:
+    traefik-dashboard:
+      entryPoints:
+        - web
+      service: api@internal
+      rule: Host(`traefik.localhost`)
+    node-app:
+      entryPoints:
+        - web
+      service: node-app
+      rule: Host(`node-app.localhost`)
+
+  # services:
+  #   node-app:
+  #     loadBalancer:
+  #       servers:
+  #         - url: "http://host.docker.internal:8001"
+  #         - url: "http://host.docker.internal:8002"
