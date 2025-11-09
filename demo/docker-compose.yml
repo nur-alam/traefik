@@ -78,7 +78,10 @@ services:
       - traefik
 
   wordpress-base:
-    image: wordpress:latest
+    build:
+      context: ./wpbase
+      dockerfile: Dockerfile
+    image: wordpress-base
     container_name: wordpress-base
     depends_on:
       - mysql

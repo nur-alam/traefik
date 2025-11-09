@@ -108,7 +108,7 @@ app.post('/create-site', async (req, res) => {
 
 		// 2️⃣ Create WordPress container
 		const container = await docker.createContainer({
-			Image: 'wordpress:latest',
+			Image: 'wordpress-base',
 			name: `wp_${id}`,
 			Env: [
 				`WORDPRESS_DB_HOST=${DB_HOST}:3306`,
