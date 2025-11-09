@@ -1,4 +1,3 @@
-# docker-compose.yml
 services:
   traefik:
     image: traefik:v3.4
@@ -12,31 +11,30 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml
-      - ./traefik/certs:/etc/traefik/certs:ro
+      - ./traefik/acme.json:/etc/traefik/acme.json
     networks:
       - traefik
+      
   node-app:
     build: ./server
     container_name: node-app
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.node-app-secure.rule=Host(`node-app.localhost`)"
+      - "traefik.http.routers.node-app-secure.rule=Host(`wptriggermail.com`) || Host(`www.wptriggermail.com`) || HostRegexp(`{subdomain:[a-z0-9]+}.wptriggermail.com`)"
       - "traefik.http.routers.node-app-secure.entrypoints=websecure"
-      - "traefik.http.routers.node-app-secure.tls=true"
+      - "traefik.http.routers.node-app-secure.tls.certresolver=letsencrypt"
       - "traefik.http.services.node-app.loadbalancer.server.port=4000"
       - "traefik.docker.network=traefik"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - DB_HOST=mysql
       - DB_ROOT_PASSWORD=root
       - DB_USER=demo
       - DB_PASS=demopass
       - DB_NAME=demoapp
-      - DOMAIN_SUFFIX=tutor.localhost
+      - DOMAIN_SUFFIX=wptriggermail.com
       - TRAEFIK_NETWORK=traefik
-    ports:
-      - "4000:4000"
     depends_on:
       - mysql
     volumes:
@@ -44,6 +42,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - traefik
+      
   mysql:
     image: mysql:8.0
     container_name: demo-mysql
@@ -59,6 +58,7 @@ services:
       - ./mysql/data:/var/lib/mysql
     networks:
       - traefik
+      
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: demo-phpmyadmin
@@ -73,6 +73,7 @@ services:
       - PMA_HOST=mysql
       - PMA_PORT=3306
       - PMA_ARBITRARY=1
+      - PMA_ABSOLUTE_URI=https://wptriggermail.com/pma/
     networks:
       - traefik
 
@@ -86,35 +87,3 @@ services:
 networks:
   traefik:
     name: traefik
-
-  # traefik example everything inside traefik creation time
-  # traefik:
-  #   image: traefik:v3.4
-  #   command:
-  #     - "--api.insecure=true"
-  #     - "--providers.docker=true"
-  #     - "--providers.docker.exposedbydefault=false"
-  #     - "--entrypoints.web.address=:80"
-  #     - "--providers.file.directory=/etc/traefik/dynamic"
-  #     - "--providers.file.watch=true"
-  #   ports:
-  #     - "80:80"
-  #     - "8080:8080"
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #     - ./traefik:/etc/traefik/dynamic
-
-  # nginx:
-  # image: nginx:1.19-alpine
-  # container_name: nginx
-  # restart: unless-stopped
-  # labels:
-  #   - "traefik.enable=true"
-  #   - "traefik.http.routers.nginx.rule=Host(`nginx.localhost`)"
-  #   - "traefik.http.routers.nginx.entrypoints=web"
-  #   - "traefik.http.services.nginx.loadbalancer.server.port=80"
-  # ports:
-  #   - "8081:80"
-  # command: [nginx-debug, '-g', 'daemon off;']
-  # networks:
-  #   - traefik

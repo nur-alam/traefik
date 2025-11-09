@@ -126,11 +126,12 @@ app.post('/create-site', async (req, res) => {
 				// HTTP router (redirects to HTTPS)
 				[`traefik.http.routers.${id}.rule`]: `Host(\`${subdomain}\`)`,
 				[`traefik.http.routers.${id}.entrypoints`]: 'web',
-				[`traefik.http.routers.${id}.middlewares`]: 'redirect-to-https',
+				[`traefik.http.routers.${id}.middlewares`]: 'redirect-to-https@file',
 				// HTTPS router
 				[`traefik.http.routers.${id}-secure.rule`]: `Host(\`${subdomain}\`)`,
 				[`traefik.http.routers.${id}-secure.entrypoints`]: 'websecure',
 				[`traefik.http.routers.${id}-secure.tls`]: 'true',
+				[`traefik.http.routers.${id}-secure.tls.certresolver`]: 'letsencrypt',
 				[`traefik.http.routers.${id}-secure.service`]: `${id}`,
 				// Service configuration
 				[`traefik.http.services.${id}.loadbalancer.server.port`]: '80',

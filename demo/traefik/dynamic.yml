@@ -4,7 +4,28 @@ http:
       entryPoints:
         - web
       service: api@internal
-      rule: Host(`traefik.localhost`)
+      rule: Host(`wptriggermail.com`) && Path(`/traefik/dashbaord`)
+    phpmyadmin-redirect:
+      entryPoints:
+        - websecure
+      service: noop@internal
+      rule: Host(`wptriggermail.com`) && Path(`/pma`)
+      priority: 210
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - add-trailing-slash
+    
+    phpmyadmin-secure:
+      entryPoints:
+        - websecure
+      service: phpmyadmin
+      rule: Host(`wptriggermail.com`) && PathPrefix(`/pma/`)
+      priority: 190
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - phpmyadmin-stripprefix
     
     node-app:
       entryPoints:
@@ -18,4 +39,26 @@ http:
     node-app:
       loadBalancer:
         servers:
-          - url: "http://node-app-1:3000"
+          - url: "http://node-app:4000"
+    
+    phpmyadmin:
+      loadBalancer:
+        servers:
+          - url: "http://demo-phpmyadmin:80"
+          
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+    
+    add-trailing-slash:
+      redirectRegex:
+        regex: "^(https?://[^/]+/.+[^/])$"
+        replacement: "${1}/"
+        permanent: true
+    
+    phpmyadmin-stripprefix:
+      stripPrefix:
+        prefixes:
+          - "/pma"
