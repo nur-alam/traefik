@@ -1,0 +1,89 @@
+services:
+  traefik:
+    image: traefik:v3.4
+    command:
+      - "--configfile=/etc/traefik/traefik.yml"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml
+      - ./traefik/acme.json:/etc/traefik/acme.json
+    networks:
+      - traefik
+      
+  node-app:
+    build: ./server
+    container_name: node-app
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.node-app-secure.rule=Host(`wptriggermail.com`) || Host(`www.wptriggermail.com`) || HostRegexp(`{subdomain:[a-z0-9]+}.wptriggermail.com`)"
+      - "traefik.http.routers.node-app-secure.entrypoints=websecure"
+      - "traefik.http.routers.node-app-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.node-app.loadbalancer.server.port=4000"
+      - "traefik.docker.network=traefik"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=mysql
+      - DB_ROOT_PASSWORD=root
+      - DB_USER=demo
+      - DB_PASS=demopass
+      - DB_NAME=demoapp
+      - DOMAIN_SUFFIX=wptriggermail.com
+      - TRAEFIK_NETWORK=traefik
+    depends_on:
+      - mysql
+    volumes:
+      - ./server/:/app/
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik
+      
+  mysql:
+    image: mysql:8.0
+    container_name: demo-mysql
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: demoapp
+      MYSQL_USER: demo
+      MYSQL_PASSWORD: demopass
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+    networks:
+      - traefik
+      
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: demo-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "90:80"
+    depends_on:
+      - mysql
+    volumes:
+      - ./phpmyadmin/data:/var/lib/phpmyadmin
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+      - PMA_ARBITRARY=1
+      - PMA_ABSOLUTE_URI=https://wptriggermail.com/pma/
+    networks:
+      - traefik
+
+  wordpress-base:
+    image: wordpress:latest
+    container_name: wordpress-base
+    depends_on:
+      - mysql
+    restart: "no"
+
+networks:
+  traefik:
+    name: traefik
