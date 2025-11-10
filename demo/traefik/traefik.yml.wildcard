@@ -27,9 +27,10 @@ certificatesResolvers:
     acme:
       email: nuralam862@gmail.com
       storage: /etc/traefik/acme.json
+      # Use DNS challenge for wildcard certificates
       dnsChallenge:
-        provider: cloudflare
-        delayBeforeCheck: 10
+        provider: cloudflare  # Change this to your DNS provider
+        delayBeforeCheck: 0
         resolvers:
           - "1.1.1.1:53"
           - "8.8.8.8:53"

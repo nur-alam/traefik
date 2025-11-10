@@ -27,9 +27,5 @@ certificatesResolvers:
     acme:
       email: nuralam862@gmail.com
       storage: /etc/traefik/acme.json
-      dnsChallenge:
-        provider: cloudflare
-        delayBeforeCheck: 10
-        resolvers:
-          - "1.1.1.1:53"
-          - "8.8.8.8:53"
+      httpChallenge:
+        entryPoint: web

@@ -12,9 +12,10 @@ services:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml
       - ./traefik/acme.json:/etc/traefik/acme.json
+    env_file:
+      - .env
     networks:
       - traefik
-      
   node-app:
     build: ./server
     container_name: node-app
@@ -24,6 +25,8 @@ services:
       - "traefik.http.routers.node-app-secure.rule=Host(`wptriggermail.com`) || Host(`www.wptriggermail.com`) || HostRegexp(`{subdomain:[a-z0-9]+}.wptriggermail.com`)"
       - "traefik.http.routers.node-app-secure.entrypoints=websecure"
       - "traefik.http.routers.node-app-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.node-app-secure.tls.domains[0].main=wptriggermail.com"
+      - "traefik.http.routers.node-app-secure.tls.domains[0].sans=*.wptriggermail.com"
       - "traefik.http.services.node-app.loadbalancer.server.port=4000"
       - "traefik.docker.network=traefik"
     environment:

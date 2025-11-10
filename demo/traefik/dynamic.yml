@@ -13,6 +13,10 @@ http:
       priority: 210
       tls:
         certResolver: letsencrypt
+        domains:
+          - main: "wptriggermail.com"
+            sans:
+              - "*.wptriggermail.com"
       middlewares:
         - add-trailing-slash
     
@@ -24,6 +28,10 @@ http:
       priority: 190
       tls:
         certResolver: letsencrypt
+        domains:
+          - main: "wptriggermail.com"
+            sans:
+              - "*.wptriggermail.com"
       middlewares:
         - phpmyadmin-stripprefix
     
@@ -34,6 +42,10 @@ http:
       rule: Host(`wptriggermail.com`) || Host(`www.wptriggermail.com`)
       tls:
         certResolver: letsencrypt
+        domains:
+          - main: "wptriggermail.com"
+            sans:
+              - "*.wptriggermail.com"
   
   services:
     node-app:

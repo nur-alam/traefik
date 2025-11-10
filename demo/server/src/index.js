@@ -133,6 +133,8 @@ app.post('/create-site', async (req, res) => {
 				[`traefik.http.routers.${id}-secure.tls`]: 'true',
 				[`traefik.http.routers.${id}-secure.tls.certresolver`]: 'letsencrypt',
 				[`traefik.http.routers.${id}-secure.service`]: `${id}`,
+				[`traefik.http.routers.${id}-secure.tls.domains[0].main`]: 'wptriggermail.com',
+				[`traefik.http.routers.${id}-secure.tls.domains[0].sans`]: '*.wptriggermail.com',
 				// Service configuration
 				[`traefik.http.services.${id}.loadbalancer.server.port`]: '80',
 				'traefik.docker.network': TRAEFIK_NETWORK,
@@ -156,7 +158,7 @@ app.post('/create-site', async (req, res) => {
 		// 3️⃣ Wait for WordPress to be fully ready
 		console.log('⏳ Waiting for WordPress to be ready...');
 		// wait 5 sec for WordPress to be ready
-		await new Promise((resolve) => setTimeout(resolve, 10000));
+		// await new Promise((resolve) => setTimeout(resolve, 2000));
 
 		// 4️⃣ Verify SSL is working
 		console.log('🔒 Verifying SSL...');
