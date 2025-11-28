@@ -5,6 +5,19 @@ http:
         - web
       service: api@internal
       rule: Host(`wptriggermail.com`) && Path(`/traefik/dashbaord`)
+
+    node-app:
+      entryPoints:
+        - websecure
+      service: node-app
+      rule: Host(`wptriggermail.com`) || Host(`www.wptriggermail.com`)
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: "wptriggermail.com"
+            sans:
+              - "*.wptriggermail.com"
+
     phpmyadmin-redirect:
       entryPoints:
         - websecure
@@ -34,18 +47,6 @@ http:
               - "*.wptriggermail.com"
       middlewares:
         - phpmyadmin-stripprefix
-    
-    node-app:
-      entryPoints:
-        - websecure
-      service: node-app
-      rule: Host(`wptriggermail.com`) || Host(`www.wptriggermail.com`)
-      tls:
-        certResolver: letsencrypt
-        domains:
-          - main: "wptriggermail.com"
-            sans:
-              - "*.wptriggermail.com"
   
   services:
     node-app:
@@ -73,4 +74,17 @@ http:
     phpmyadmin-stripprefix:
       stripPrefix:
         prefixes:
-          - "/pma"
+          - "/pma"    
+    # wordpress-headers:
+    #   headers:
+    #     customRequestHeaders:
+    #       X-Forwarded-Proto: "https"
+    #       X-Forwarded-Port: "443"
+
+    # node-app-http:
+    #   entryPoints:
+    #     - web
+    #   service: node-app
+    #   rule: Host(`wptriggermail.com`) || Host(`www.wptriggermail.com`)
+    #   middlewares:
+    #     - redirect-to-https

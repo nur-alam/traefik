@@ -59,6 +59,8 @@ services:
       MYSQL_PASSWORD: demopass
     volumes:
       - ./mysql/data:/var/lib/mysql
+      - ./server/backups:/backups:ro
+      # ensure this points to the actual host backups
     networks:
       - traefik
       

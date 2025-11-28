@@ -3,31 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Demo Site Manager</title>
+    <title>Test WordPress Demo Site</title>
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 Demo Site Manager</h1>
-            <p>Create and manage WordPress demo sites instantly</p>
+            <h1>Test WordPress Demo Site</h1>
+            <p>Create and manage test WordPress sites instantly</p>
         </div>
-        
-        <div class="create-section">
-            <form class="create-form" id="createForm">
-                <div class="form-group">
-                    <label for="username">Username (optional)</label>
-                    <input type="text" id="username" name="username" placeholder="Enter username or leave blank">
-                </div>
-                <button type="submit" class="create-btn" id="createBtn">
-                    Create Demo Site
-                </button>
-            </form>
-        </div>
+
+        <form class="create-form" id="createForm">
+            <div class="form-group" style="display: none;">
+                <label for="username">Username (optional)</label>
+                <input type="text" id="username" name="username" placeholder="Enter username or leave blank">
+            </div>
+            <button type="submit" class="create-btn" id="createBtn">
+                Create Site
+            </button>
+        </form>
         
         <div class="sites-section">
             <div class="sites-header">
-                <h2>Active Demo Sites</h2>
+                <h2>Active Sites</h2>
                 <button class="refresh-btn" onclick="loadSites()">🔄 Refresh</button>
             </div>
             
@@ -60,7 +58,7 @@
             createBtn.textContent = 'Creating...';
             
             try {
-                const response = await fetch('/create-site', {
+                const response = await fetch('/api/site', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -90,7 +88,7 @@
             container.innerHTML = '<div class="loading"><p>Loading sites...</p></div>';
             
             try {
-                const response = await fetch('/sites');
+                const response = await fetch('/api/sites');
                 const data = await response.json();
                 
                 if (data.success) {
@@ -121,6 +119,7 @@
                 <div class="site-card">
                     <a href="${site.url}" target="_blank" class="site-url">${site.url}</a>
                     <div class="site-info"><strong>Username:</strong> ${site.username}</div>
+                    <div class="site-info"><strong>Password:</strong> ${site.password}</div>
                     <div class="site-info"><strong>Created:</strong> ${new Date(parseInt(site.created_at)).toLocaleString()}</div>
                     <div class="site-info"><strong>Database:</strong> ${site.dbname}</div>
                     <div class="site-actions">
