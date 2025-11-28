@@ -57,7 +57,7 @@ http:
     phpmyadmin:
       loadBalancer:
         servers:
-          - url: "http://demo-phpmyadmin:80"
+          - url: "http://phpmyadmin:80"
           
   middlewares:
     redirect-to-https:

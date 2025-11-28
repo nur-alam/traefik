@@ -14,7 +14,7 @@ export default async function cleanupExpiredSites() {
 			const createdAt = parseInt(labels['demoserver.created_at'], 10);
 			const ageMinutes = (Date.now() - createdAt) / (1000 * 60);
 
-			if (ageMinutes > 2) {
+			if (ageMinutes > 30) {
 				const username = labels['demoserver.username'];
 				const dbName = labels['demoserver.dbname'];
 				const dbUser = labels['demoserver.dbuser'];
@@ -45,7 +45,7 @@ export default async function cleanupExpiredSites() {
 				}
 
 				// Drop MySQL database and user
-				const mysqlContainer = docker.getContainer('demo-mysql');
+				const mysqlContainer = docker.getContainer(process.env.MYSQL_CONTAINER_NAME || 'mysql');
 				const exec = await mysqlContainer.exec({
 					Cmd: ['mysql', '-uroot', `-p${DB_ROOT_PASSWORD}`, '-e', `DROP DATABASE IF EXISTS ${dbName}; DROP USER IF EXISTS '${dbUser}'@'%'; FLUSH PRIVILEGES;`],
 					AttachStdout: true,
@@ -87,7 +87,7 @@ export default async function cleanupExpiredSites() {
 // 				await container.remove({ v: true, force: true });
 
 // 				// Drop MySQL database and user
-// 				const mysqlContainer = docker.getContainer('demo-mysql');
+// 				const mysqlContainer = docker.getContainer(process.env.MYSQL_CONTAINER_NAME || 'mysql');
 // 				const exec = await mysqlContainer.exec({
 // 					Cmd: ['mysql', '-uroot', `-p${DB_ROOT_PASSWORD}`, '-e', `DROP DATABASE IF EXISTS ${dbName}; DROP USER IF EXISTS '${dbUser}'@'%'; FLUSH PRIVILEGES;`],
 // 					AttachStdout: true,

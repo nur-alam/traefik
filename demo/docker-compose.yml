@@ -19,6 +19,7 @@ services:
   node-app:
     build: ./server
     container_name: node-app
+    # image_name: node-app
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -29,15 +30,8 @@ services:
       - "traefik.http.routers.node-app-secure.tls.domains[0].sans=*.wptriggermail.com"
       - "traefik.http.services.node-app.loadbalancer.server.port=4000"
       - "traefik.docker.network=traefik"
-    environment:
-      - NODE_ENV=production
-      - DB_HOST=mysql
-      - DB_ROOT_PASSWORD=root
-      - DB_USER=demo
-      - DB_PASS=demopass
-      - DB_NAME=demoapp
-      - DOMAIN_SUFFIX=wptriggermail.com
-      - TRAEFIK_NETWORK=traefik
+    env_file:
+      - .env
     depends_on:
       - mysql
     volumes:
@@ -48,12 +42,12 @@ services:
       
   mysql:
     image: mysql:8.0
-    container_name: demo-mysql
+    container_name: mysql
     restart: unless-stopped
     ports:
       - "3307:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: demoapp
       MYSQL_USER: demo
       MYSQL_PASSWORD: demopass
@@ -66,7 +60,7 @@ services:
       
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
-    container_name: demo-phpmyadmin
+    container_name: phpmyadmin
     restart: unless-stopped
     ports:
       - "90:80"
@@ -82,15 +76,15 @@ services:
     networks:
       - traefik
 
-  wordpress-base:
-    build:
-      context: ./wpbase
-      dockerfile: Dockerfile
-    image: wordpress-base
-    container_name: wordpress-base
-    depends_on:
-      - mysql
-    restart: "no"
+  # wordpress-base:
+  #   build:
+  #     context: ./wpbase
+  #     dockerfile: Dockerfile
+  #   image: wordpress-base
+  #   container_name: wordpress-base
+  #   depends_on:
+  #     - mysql
+  #   restart: "no"
 
 networks:
   traefik:

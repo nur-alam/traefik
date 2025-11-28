@@ -1,99 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import docker from './docker.js';
-
-async function followProgress(stream) {
-	return new Promise((resolve, reject) => {
-		docker.modem.followProgress(stream, (err, res) => {
-			if (err) return reject(err);
-			resolve(res);
-		});
-	});
-}
-
-async function ensureImage(imageRef) {
-	try {
-		await docker.getImage(imageRef).inspect();
-		console.log(`WordPress image ${imageRef} already exists locally`);
-	} catch {
-		console.log(`Pulling ${imageRef}...`);
-		const stream = await docker.pull(imageRef);
-		await followProgress(stream);
-		console.log('Pull complete!');
-	}
-}
-
-async function cleanupContainer(name) {
-	try {
-		const container = docker.getContainer(name);
-		const info = await container.inspect();
-		if (info?.State?.Running) {
-			await container.stop();
-		}
-		await container.remove({ force: true });
-		console.log(`Removed existing container: ${name}`);
-	} catch {
-		// Not found or already removed
-	}
-}
-
-async function waitForMySQL(maxAttempts = 60) {
-	console.log('Waiting for MySQL to be ready...');
-	const mysql = docker.getContainer('demo-mysql');
-	for (let i = 0; i < maxAttempts; i++) {
-		try {
-			await execShell(mysql, `mysql -uroot -p${process.env.DB_ROOT_PASSWORD || 'root'} -e "SHOW DATABASES;"`);
-			return true;
-		} catch (err) {
-			if (i % 5 === 0) {
-				console.log(`Still waiting... (attempt ${i + 1}/${maxAttempts})`);
-			}
-			execSync('sleep 2');
-		}
-	}
-	throw new Error('MySQL failed to become ready');
-}
-
-async function execShell(container, cmd) {
-	const exec = await container.exec({
-		Cmd: ['sh', '-lc', cmd],
-		AttachStdout: true,
-		AttachStderr: true,
-	});
-	return new Promise((resolve, reject) => {
-		exec.start((err, stream) => {
-			if (err) return reject(err);
-			let stdout = '';
-			let stderr = '';
-			stream.on('data', (chunk) => {
-				const s = chunk.toString();
-				stdout += s;
-				// Optionally print progress logs to console
-				// process.stdout.write(s);
-			});
-			stream.on('error', reject);
-			stream.on('end', async () => {
-				try {
-					const info = await exec.inspect();
-					resolve({ exitCode: info.ExitCode, stdout, stderr });
-				} catch (e) {
-					reject(e);
-				}
-			});
-		});
-	});
-}
-
-async function waitForFile(container, filePath, maxAttempts = 60) {
-	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-	for (let i = 0; i < maxAttempts; i++) {
-		const { exitCode } = await execShell(container, `test -f ${filePath}`);
-		if (exitCode === 0) return true;
-		if (i % 5 === 0) console.log(`Waiting for ${filePath}... (attempt ${i + 1}/${maxAttempts})`);
-		await sleep(2000);
-	}
-	throw new Error(`File not present in time: ${filePath}`);
-}
+import { execShell, waitForMySQL, waitForWordPressReady, ensureImage, cleanupContainer, waitForFile } from './utils/dockerUitls.js';
+import { WP_GOLDEN_DB_NAME, WP_GOLDEN_IMAGE_NAME, TRAEFIK_NETWORK, DB_ROOT_USER, DB_ROOT_PASSWORD, DB_HOST, DB_PORT, MYSQL_CONTAINER_NAME, WP_CLI_URL } from './config/index.js';
 
 async function createGoldenContainer({ name, dbHost, dbPort, dbUser, dbPassword, dbName, hostBackups, image }) {
 	const container = await docker.createContainer({
@@ -108,7 +17,7 @@ async function createGoldenContainer({ name, dbHost, dbPort, dbUser, dbPassword,
 		],
 		ExposedPorts: { '80/tcp': {} },
 		HostConfig: {
-			NetworkMode: 'traefik',
+			NetworkMode: TRAEFIK_NETWORK,
 			PortBindings: { '80/tcp': [{ HostPort: '9009' }] },
 			Binds: hostBackups ? [`${hostBackups}:/backups:ro`] : [],
 		},
@@ -119,12 +28,18 @@ async function createGoldenContainer({ name, dbHost, dbPort, dbUser, dbPassword,
 
 async function installWpCli(container) {
 	console.log('Installing WP-CLI...');
-	await execShell(container, 'curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o /usr/local/bin/wp');
+	await execShell(container, `curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o /usr/local/bin/wp`);
+	// await execShell(container, `curl -fsSL ${WP_CLI_URL}`);
 	await execShell(container, 'chmod +x /usr/local/bin/wp');
 }
 
 async function installWordPress(container) {
 	console.log('Running wp core install...');
+	const check = await execShell(container, 'wp core is-installed --allow-root --path=/var/www/html');
+	if (check.exitCode === 0) {
+		console.log('WordPress already installed, skipping core install');
+		return;
+	}
 	const cmd = [
 		'wp core install',
 		'--url=http://localhost:9009',
@@ -133,9 +48,11 @@ async function installWordPress(container) {
 		'--admin_password=demo',
 		'--admin_email=nuralam@gmail.com',
 		'--allow-root',
+		'--path=/var/www/html',
+		'--skip-email',
 	].join(' ');
 	const res = await execShell(container, cmd);
-	if (res.exitCode !== 0) throw new Error(`wp core install failed: ${res.stderr}`);
+	if (res.exitCode !== 0) throw new Error(`wp core install failed: ${res.stderr || res.stdout}`);
 }
 
 async function installPluginsAndTheme(container) {
@@ -168,7 +85,7 @@ async function installPluginsAndTheme(container) {
 	}
 }
 
-async function commitGoldenImage(container, repo = 'wordpress-golden', tag = 'latest') {
+async function commitGoldenImage(container, repo = WP_GOLDEN_DB_NAME, tag = 'latest') {
 	const res = await container.commit({ repo, tag });
 	const id = typeof res === 'string' ? res : res?.Id;
 	
@@ -198,42 +115,37 @@ function getContainerByName(name) {
 }
 
 export async function initGoldenImage() {
-	console.log('Initializing pool of WordPress sites...');
+	console.log('Creating golden image...');
 
 	// Wait for MySQL
 	// console.log('Waiting for MySQL to be ready...');
 	await waitForMySQL();
-
 	// // Ensure WordPress image
 	const wpImage = 'wordpress:latest';
 	await ensureImage(wpImage);
+	
+	// Create DB if not exists
+	const goldenDb = WP_GOLDEN_DB_NAME;
+	const mysqlContainer = docker.getContainer(MYSQL_CONTAINER_NAME || 'mysql');
+	await execShell(mysqlContainer, `mysql -u${DB_ROOT_USER} -p${DB_ROOT_PASSWORD} -e "CREATE DATABASE IF NOT EXISTS ${WP_GOLDEN_DB_NAME};"`);
 
-	// // Create DB if not exists
-	const goldenDb = 'wp_golden';
-	const mysql = docker.getContainer('demo-mysql');
-	await execShell(mysql, `mysql -uroot -p${process.env.DB_ROOT_PASSWORD || 'root'} -e "CREATE DATABASE IF NOT EXISTS ${goldenDb};"`);
-
-	// // Clean any previous container
-	const goldenContainerName = 'wp_golden';
+	// Clean any previous container
+	const goldenContainerName = WP_GOLDEN_IMAGE_NAME;
 	await cleanupContainer(goldenContainerName);
 
-	// // Mount host backups directory to /backups
-	// // Defaults to your workspace path; override via HOST_BACKUPS_PATH if different
+	// Mount host backups directory to /backups
+	// Defaults to your workspace path; override via HOST_BACKUPS_PATH if different
 	const hostBackups = process.env.HOST_BACKUPS_PATH || '/home/traefik/demo/server/backups';
 	console.log(`Using HOST_BACKUPS_PATH: ${hostBackups}`);
-	// if (!fs.existsSync(hostBackups)) {
-	// 	console.log(`Backups directory not found at ${hostBackups}; proceeding without mounts.`);
-	// 	return true;
-	// }
 
 	// Create and start golden container
 	const goldenContainer = await createGoldenContainer({
 		name: goldenContainerName,
-		dbHost: 'demo-mysql', // use container_name; service DNS is 'mysql' in Compose, both work on the traefik network
-		dbPort: 3306,
-		dbUser: 'root',
-		dbPassword: process.env.DB_ROOT_PASSWORD || 'root',
-		dbName: goldenDb,
+		dbHost: DB_HOST,
+		dbPort: DB_PORT,
+		dbUser: DB_ROOT_USER,
+		dbPassword: DB_ROOT_PASSWORD,
+		dbName: WP_GOLDEN_DB_NAME,
 		hostBackups,
 		image: wpImage,
 	});
@@ -249,7 +161,7 @@ export async function initGoldenImage() {
 	await installWordPress(goldenContainer);
 	await installPluginsAndTheme(goldenContainer);
 
-	// // Stop container before committing
+	//Stop container before committing
 	console.log('Stopping golden container before commit...');
 	await goldenContainer.stop();
 	

@@ -162,7 +162,7 @@ export const createSite = async (req, res) => {
 }
 
 export const dumpDb = async (dbName) => {
-    const mysqlContainer = docker.getContainer('demo-mysql');
+    const mysqlContainer = docker.getContainer(process.env.MYSQL_CONTAINER_NAME || 'mysql');
     const sqlFile = process.env.GOLDEN_SQL_PATH || '/backups/golden.sql';
 
     // Verify the file exists inside the MySQL container

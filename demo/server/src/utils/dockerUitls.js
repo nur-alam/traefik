@@ -1,6 +1,8 @@
 import fs from 'node:fs';
+import { execSync } from 'node:child_process';
 import path from 'node:path';
 import docker from '../docker.js';
+import { DB_HOST, DB_PORT, DB_ROOT_USER, DB_ROOT_PASSWORD } from '../config/index.js';
 
 export async function installWordPress(container) {
 	console.log('Running wp core install...');
@@ -67,10 +69,11 @@ export async function waitForWordPressReady(container, maxAttempts = 90) {
 
 export async function waitForMySQL(maxAttempts = 60) {
 	console.log('Waiting for MySQL to be ready...');
-	const mysql = docker.getContainer('demo-mysql');
+	const mysqlContainer = docker.getContainer(DB_HOST || 'mysql');
 	for (let i = 0; i < maxAttempts; i++) {
 		try {
-			await execShell(mysql, `mysql -uroot -p${process.env.DB_ROOT_PASSWORD || 'root'} -e "SHOW DATABASES;"`);
+			await execShell(mysqlContainer, `mysql -u${DB_ROOT_USER} -p${DB_ROOT_PASSWORD} -e "SHOW DATABASES;"`);
+			console.log(`MySQL container is ready`);
 			return true;
 		} catch (err) {
 			if (i % 5 === 0) {
@@ -79,7 +82,7 @@ export async function waitForMySQL(maxAttempts = 60) {
 			execSync('sleep 2');
 		}
 	}
-	throw new Error('MySQL failed to become ready');
+	throw new Error('MySQL container failed to become ready');
 }
 
 export async function execShell(container, cmd) {
@@ -110,4 +113,50 @@ export async function execShell(container, cmd) {
 			});
 		});
 	});
+}
+
+export async function followProgress(stream) {
+	return new Promise((resolve, reject) => {
+		docker.modem.followProgress(stream, (err, res) => {
+			if (err) return reject(err);
+			resolve(res);
+		});
+	});
+}
+
+export async function ensureImage(imageRef) {
+	try {
+		await docker.getImage(imageRef).inspect();
+		console.log(`WordPress image ${imageRef} already exists locally`);
+	} catch {
+		console.log(`Pulling ${imageRef}...`);
+		const stream = await docker.pull(imageRef);
+		await followProgress(stream);
+		console.log('Pull complete!');
+	}
+}
+
+export async function cleanupContainer(name) {
+	try {
+		const container = docker.getContainer(name);
+		const info = await container.inspect();
+		if (info?.State?.Running) {
+			await container.stop();
+		}
+		await container.remove({ force: true });
+		console.log(`Removed existing container: ${name}`);
+	} catch {
+		// Not found or already removed
+	}
+}
+
+export async function waitForFile(container, filePath, maxAttempts = 60) {
+	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+	for (let i = 0; i < maxAttempts; i++) {
+		const { exitCode } = await execShell(container, `test -f ${filePath}`);
+		if (exitCode === 0) return true;
+		if (i % 5 === 0) console.log(`Waiting for ${filePath}... (attempt ${i + 1}/${maxAttempts})`);
+		await sleep(2000);
+	}
+	throw new Error(`File not present in time: ${filePath}`);
 }

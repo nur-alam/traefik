@@ -1,5 +1,6 @@
 import express from 'express';
 import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
 import { nanoid } from 'nanoid';
 import cron from 'node-cron';
 import cleanupExpiredSites from './cleanup.js';
@@ -9,7 +10,9 @@ import { fileURLToPath } from 'url';
 import { fork } from 'node:child_process';
 import router from './router/index.js';
 import pool from './db/index.js';
-import { DB_HOST, DB_ROOT_PASSWORD, DOMAIN_SUFFIX, TRAEFIK_NETWORK } from './config/index.js';
+
+// load env file
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
