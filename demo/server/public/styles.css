@@ -44,7 +44,9 @@ body {
     display: flex;
     gap: 15px;
     align-items: end;
+    justify-content: end;
     flex-wrap: wrap;
+    margin-bottom: 20px;
 }
 
 .form-group {
@@ -57,6 +59,8 @@ body {
     margin-bottom: 5px;
     font-weight: 600;
     color: #333;
+    background: #a17f7f;
+    margin-bottom: 10px;
 }
 
 .form-group input {
@@ -74,7 +78,7 @@ body {
 }
 
 .create-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #3f4664 0%, #7a05f1 100%);
     color: white;
     border: none;
     padding: 12px 30px;
