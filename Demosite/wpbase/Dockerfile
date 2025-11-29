@@ -1,10 +1,10 @@
 FROM wordpress:latest
 
-# Copy the pre-installer mu plugin
-# COPY mu-plugins/pre-install.php /var/www/html/wp-content/mu-plugins/
+# Copy the auto-login mu-plugin
+COPY mu-plugins/auto-login.php /usr/local/share/auto-login.php
 
-# Install unzip utility and WP-CLI
-RUN apt-get update && apt-get install -y unzip curl && rm -rf /var/lib/apt/lists/* && \
+# Install unzip utility, WP-CLI, and mysql-client
+RUN apt-get update && apt-get install -y unzip curl default-mysql-client && rm -rf /var/lib/apt/lists/* && \
     curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
     chmod +x wp-cli.phar && \
     mv wp-cli.phar /usr/local/bin/wp
@@ -17,29 +17,13 @@ RUN set -ex; \
 	rm *.zip; \
 	chown -R www-data:www-data /var/www/html;
 
-# Create plugin activation script
-RUN echo '#!/bin/bash\n\
-# Wait for WordPress to be ready\n\
-while ! wp core is-installed --allow-root --path=/var/www/html 2>/dev/null; do\n\
-    echo "Waiting for WordPress installation..."\n\
-    sleep 2\n\
-done\n\
-\n\
-# Activate plugins\n\
-echo "Activating Tutor plugin..."\n\
-wp plugin activate tutor --allow-root --path=/var/www/html\n\
-' > /usr/local/bin/activate-plugins.sh && \
-chmod +x /usr/local/bin/activate-plugins.sh
+# Copy WordPress auto-install script
+COPY wp-auto-install.sh /usr/local/bin/wp-auto-install.sh
+RUN chmod +x /usr/local/bin/wp-auto-install.sh
 
-# Create custom entrypoint wrapper
-RUN echo '#!/bin/bash\n\
-# Start the plugin activation script in background\n\
-/usr/local/bin/activate-plugins.sh &\n\
-\n\
-# Start WordPress normally\n\
-exec docker-entrypoint.sh apache2-foreground\n\
-' > /usr/local/bin/custom-entrypoint.sh && \
-chmod +x /usr/local/bin/custom-entrypoint.sh
+# Copy custom entrypoint wrapper
+COPY custom-entrypoint.sh /usr/local/bin/custom-entrypoint.sh
+RUN chmod +x /usr/local/bin/custom-entrypoint.sh
 
 # Use our custom entrypoint
 ENTRYPOINT ["/usr/local/bin/custom-entrypoint.sh"]

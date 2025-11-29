@@ -157,8 +157,8 @@ app.post('/create-site', async (req, res) => {
 
 		// 3️⃣ Wait for WordPress to be fully ready
 		console.log('⏳ Waiting for WordPress to be ready...');
-		// wait 5 sec for WordPress to be ready
-		// await new Promise((resolve) => setTimeout(resolve, 2000));
+		// Wait for WordPress installation to complete
+		await new Promise((resolve) => setTimeout(resolve, 10000));
 
 		// 4️⃣ Verify SSL is working
 		console.log('🔒 Verifying SSL...');
@@ -199,4 +199,10 @@ app.post('/cleanup', async (req, res) => {
 	}
 });
 
-app.listen(4000, () => console.log('🚀 Demoserver backend running on port 4000'));
+app.listen(4000, () => {
+	console.log('🚀 Demoserver backend running on port 4000')
+	// Todo:
+	// need to make wordpress golden image named: wordpress-golden
+	// create prewarm 10 site // run in separate process using node fork
+	// serve site from prewarm site
+});

@@ -1,0 +1,85 @@
+{
+  "available": [],
+  "used": [
+    {
+      "id": 2,
+      "containerName": "prewarm_2",
+      "siteUrl": "http://localhost:9002",
+      "adminUsername": "admin",
+      "adminPassword": "demo",
+      "dbName": "wordpress_2",
+      "dbPass": "rootpass",
+      "port": 9002
+    },
+    {
+      "id": 1,
+      "containerName": "prewarm_1",
+      "siteUrl": "http://localhost:9001",
+      "adminUsername": "admin",
+      "adminPassword": "demo",
+      "dbName": "wordpress_1",
+      "dbPass": "rootpass",
+      "port": 9001
+    },
+    {
+      "id": 2,
+      "containerName": "prewarm_2",
+      "siteUrl": "http://localhost:9002",
+      "adminUsername": "admin",
+      "adminPassword": "demo",
+      "dbName": "wordpress_2",
+      "dbPass": "rootpass",
+      "port": 9002
+    },
+    {
+      "id": 1,
+      "containerName": "prewarm_1",
+      "siteUrl": "http://localhost:9001",
+      "adminUsername": "admin",
+      "adminPassword": "demo",
+      "dbName": "wordpress_1",
+      "dbPass": "rootpass",
+      "port": 9001
+    },
+    {
+      "id": 5,
+      "containerName": "wp_5",
+      "siteUrl": "http://localhost:10005",
+      "adminUsername": "admin",
+      "adminPassword": "demo",
+      "dbName": "wordpress_5",
+      "dbPass": "rootpass",
+      "port": 10005
+    },
+    {
+      "id": 6,
+      "containerName": "wp_6",
+      "siteUrl": "http://localhost:10006",
+      "adminUsername": "admin",
+      "adminPassword": "demo",
+      "dbName": "wordpress_6",
+      "dbPass": "rootpass",
+      "port": 10006
+    },
+    {
+      "id": 7,
+      "containerName": "wp_7",
+      "siteUrl": "http://localhost:10007",
+      "adminUsername": "admin",
+      "adminPassword": "demo",
+      "dbName": "wordpress_7",
+      "dbPass": "rootpass",
+      "port": 10007
+    },
+    {
+      "id": 8,
+      "containerName": "wp_8",
+      "siteUrl": "http://localhost:10008",
+      "adminUsername": "admin",
+      "adminPassword": "demo",
+      "dbName": "wordpress_8",
+      "dbPass": "rootpass",
+      "port": 10008
+    }
+  ]
+}
