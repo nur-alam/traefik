@@ -10,9 +10,14 @@ import { fileURLToPath } from 'url';
 import { fork } from 'node:child_process';
 import router from './router/index.js';
 import pool from './db/index.js';
+import { createDemoSitesTable } from './db/migrations/migrations.js';
+import { goldenImageCreation, sitePoolInitialization } from './app-initialize.js';
 
 // load env file
 dotenv.config();
+
+// Migrations, db schema creation like table creation
+await createDemoSitesTable();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,9 +25,10 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
+
 // Set up EJS as template engine
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, '../views'));
+app.set('views', path.join(__dirname, './views'));
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../public')));
@@ -34,13 +40,29 @@ app.get('/', (req, res) => {
 	res.render('index');
 });
 
-cron.schedule('0 */1 * * *', async () => {
-	try {
-		await cleanupExpiredSites();
-		res.json({ success: true });
-	} catch (err) {
-		res.status(500).json({ error: err.message });
+
+app.listen(4000, async () => {
+	console.log('🚀 Demoserver backend running on port 4000');
+
+	const containers = await docker.listContainers({ all: true });
+
+	for (const c of containers) {
+		const labels = c.Labels || {};
+		if (!labels['demoserver.created_at']) continue;
+		// console.log('container', c.Id, labels);
 	}
+
+	goldenImageCreation();
+	sitePoolInitialization();
+});
+
+
+cron.schedule('* */1 * * *', async () => {
+    try {
+        await cleanupExpiredSites();
+    } catch (err) {
+        console.error('Cleanup cron error:', err);
+    }
 });
 
 // Remove container after 10 min which is create by /create-site api using cron job
@@ -50,39 +72,5 @@ app.post('/cleanup', async (req, res) => {
 		res.json({ success: true });
 	} catch (err) {
 		res.status(500).json({ error: err.message });
-	}
-});
-
-
-let goldenImageCreating = false;
-
-async function goldenImageExists() {
-	try {
-		await docker.images.inspect('wp-golden:latest');
-		return true;
-	} catch (err) {
-		return false;
-	}
-}
-
-app.listen(4000, async () => {
-	console.log('🚀 Demoserver backend running on port 4000');
-
-	if (!goldenImageExists() && !goldenImageCreating) {
-	// if (true) {
-		goldenImageCreating = true;
-		// const worker = fork('./goldenImage.js');
-		const workerScript = path.join(__dirname, 'goldenImage.js');
-		const worker = fork(workerScript, { stdio: 'inherit' });
-		worker.on('exit', (code) => {
-			goldenImageCreating = false;
-			if (code === 0) {
-				console.log('Main Golden image created successfully!');
-			} else {
-				console.error(`Golden image creation process exited with code ${code}`);
-			}
-		});
-	} else {
-		console.log('Golden image already exists or is being created, skipping.');
 	}
 });

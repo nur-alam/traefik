@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Test WordPress Demo Site</h1>
+            <h1>Test WordPress Site</h1>
             <p>Create and manage test WordPress sites instantly</p>
         </div>
 
@@ -63,13 +63,18 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ username: username || undefined })
+                    body: JSON.stringify({ username: username || undefined }    )
                 });
+
+                console.log('response data', response); 
                 
                 const result = await response.json();
                 
+                console.log('response data', result); 
+                
                 if (result.success) {
-                    showAlert('success', `Site created successfully! <a href="${result.url}" target="_blank">${result.url}</a>`);
+                    const site = result.site || {};
+                    showAlert('success', `Site created successfully! <a href="${site.siteurl}" target="_blank">${site.siteurl}</a>`);
                     document.getElementById('username').value = '';
                     setTimeout(() => loadSites(), 2000); // Reload sites after 2 seconds
                 } else {
@@ -117,14 +122,16 @@
             
             const sitesHTML = sites.map(site => `
                 <div class="site-card">
-                    <a href="${site.url}" target="_blank" class="site-url">${site.url}</a>
-                    <div class="site-info"><strong>Username:</strong> ${site.username}</div>
+                    <a href="${site.siteurl}" target="_blank" class="site-url">${site.siteurl}</a>
+                    <div class="site-info"><strong>Username:</strong> ${site.user}</div>
                     <div class="site-info"><strong>Password:</strong> ${site.password}</div>
+                    <div class="site-info"><strong>Database:</strong> ${site.db_name}</div>
+                    <div class="site-info"><strong>DB User:</strong> ${site.db_user}</div>
+                    <div class="site-info"><strong>DB Pass:</strong> ${site.db_pass}</div>
                     <div class="site-info"><strong>Created:</strong> ${new Date(parseInt(site.created_at)).toLocaleString()}</div>
-                    <div class="site-info"><strong>Database:</strong> ${site.dbname}</div>
                     <div class="site-actions">
-                        <a href="${site.url}" target="_blank" class="btn-small btn-visit">Visit Site</a>
-                        <a href="${site.url}/wp-admin" target="_blank" class="btn-small btn-admin">Admin Panel</a>
+                        <a href="${site.siteurl}" target="_blank" class="btn-small btn-visit">Visit Site</a>
+                        <a href="${site.siteurl}/wp-admin" target="_blank" class="btn-small btn-admin">Admin Panel</a>
                     </div>
                 </div>
             `).join('');

@@ -1,1 +1,1 @@
-export { getSites, createSite } from './siteController.js';
+export { getSites, getSite, createSite } from './siteController.js';

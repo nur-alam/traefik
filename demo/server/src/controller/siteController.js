@@ -11,29 +11,27 @@ import { execShell, waitForWordPressReady } from '../utils/dockerUitls.js';
 const GOLDEN_SQL = process.env.GOLDEN_SQL_PATH || 'backups/golden.sql';
 
 export const getSites = async (req, res) => {
-	try {
-		const containers = await docker.listContainers({
-			all: false,
-			filters: {
-				label: ['demoserver.created_at']
-			}
-		});
+    try {
+        // Get all site from db
+        const [rows] = await pool.query(`SELECT * FROM sites`);
+        if (rows.length === 0) {
+            return res.json({ success: true, sites: [] });
+        }
 
-		const sites = containers.map(container => {
-			const labels = container.Labels;
-			const subdomainRule = Object.keys(labels)
-				.find(key => key.startsWith('traefik.http.routers.') && key.endsWith('.rule'));
-			const subdomain = subdomainRule ? labels[subdomainRule]?.match(/Host\(`([^`]+)`\)/)?.[1] : null;
+        // Get all site from docker (optional; currently unused)
 
+		const sites = rows.map(row => {
 			return {
-				id: container.Id.substring(0, 12),
-				name: container.Names[0].substring(1), // Remove leading slash
-				url: subdomain ? `https://${subdomain}` : 'N/A',
-				username: labels['demoserver.username'] || 'Unknown',
-				password: labels['demoserver.password'] || 'Unknown',
-				created_at: labels['demoserver.created_at'],
-				dbname: labels['demoserver.dbname'],
-				status: container.State
+				id: row.id,
+				name: row.siteurl, // Remove leading slash
+				siteurl: row.siteurl,
+				user: row.user || 'Unknown',
+				password: row.password || 'Unknown',
+				db_name: row.db_name,
+				db_user: row.db_user,
+				db_pass: row.db_pass,
+				status: row.State,
+				created_at: row.created_at,
 			};
 		});
 
@@ -46,14 +44,82 @@ export const getSites = async (req, res) => {
 	}
 }
 
-export const createSite = async (req, res) => {
+export const getSite = async (req, res) => {
+	try {
+		// await pool.query(`INSERT INTO sitepool (id, containerid, siteurl, user, password, email, db_name, db_user, db_pass) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+		// 	1,
+		// 	'containerId',
+		// 	`https://`,
+		// 	'username',
+		// 	'req.body.password || containerId',
+		// 	'req.body.email',
+		// 	'dbName',
+		// 	'dbUser',
+		// 	'dbPass',
+		// ]);
+		const [rows] = await pool.query(`SELECT * FROM sitepool limit 1`);
+
+		if (rows.length !== 0) {
+			await pool.query(`DELETE FROM sitepool WHERE id = ?`, [rows[0].id]);
+
+			await pool.query(
+				`INSERT INTO sites (containerid, siteurl, user, password, db_name, db_user, db_pass) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+				[
+					rows[0].containerid,
+					rows[0].siteurl,
+					rows[0].user,
+					rows[0].password,
+					rows[0].db_name,
+					rows[0].db_user,
+					rows[0].db_pass,
+				]
+			);
+			// keep pool size up to 2 in background
+			try {
+				const [[{ cnt }]] = await pool.query('SELECT COUNT(*) AS cnt FROM sitepool');
+				if (cnt < 2) {
+					const { fork } = await import('node:child_process');
+					const { fileURLToPath } = await import('url');
+					const { default: path } = await import('path');
+					const __filename = fileURLToPath(import.meta.url);
+					const __dirname = path.dirname(__filename);
+					const workerScript = path.join(__dirname, '../initPool.js');
+					fork(workerScript, { stdio: 'inherit' });
+				}
+			} catch (_) {}
+			return res.json({ success: true, site: rows[0] });
+		}
+		// Otherwise create site if it doesn't exist
+		const site = await createSite();
+		await pool.query(`INSERT INTO sites (containerid, siteurl, user, password, db_name, db_user, db_pass) VALUES ('${site.containerId}', '${site.siteurl}', '${site.user}', '${site.password}', '${site.dbName}', '${site.dbUser}', '${site.dbPass}')`);
+		
+		// keep pool size up to 2 in background
+		try {
+			const [[{ cnt }]] = await pool.query('SELECT COUNT(*) AS cnt FROM sitepool');
+			if (cnt < 2) {
+				const { fork } = await import('node:child_process');
+				const { fileURLToPath } = await import('url');
+				const { default: path } = await import('path');
+				const __filename = fileURLToPath(import.meta.url);
+				const __dirname = path.dirname(__filename);
+				const workerScript = path.join(__dirname, '../initPool.js');
+				fork(workerScript, { stdio: 'inherit' });
+			}
+		} catch (_) { }
+		
+		res.json({ success: true, site });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+}
+
+export const createSite = async () => {
 	// const goldenContainerName = 'wp_golden';
 	const containerId = nanoid(6).toLowerCase();
-	console.log('containerId', containerId);
 	const containerName = `wp_${containerId}`;
 	const dbName = `wp_${containerId}`;
-	const username = req.body.username || containerId;
-	const dbUser = `user_${containerId}`;
+	// const username = req.body.username || containerId;
+	const dbUser = `db_${containerId}`;
 	const dbPass = nanoid(10);
 	const subdomain = `${containerId}.${DOMAIN_SUFFIX}`;
 	const port = 10000 + containerId;
@@ -87,13 +153,13 @@ export const createSite = async (req, res) => {
 			`WORDPRESS_DB_USER=${dbUser}`,
 			`WORDPRESS_DB_PASSWORD=${dbPass}`,
 			`WORDPRESS_DB_NAME=${dbName}`,
-			`WP_SITE_TITLE=Demo ${username}`,
+			`WP_SITE_TITLE=Demo Site`,
 			`WP_ADMIN_USER=admin`,
 			`WP_ADMIN_PASS=demo`,
 			`WP_ADMIN_EMAIL=admin@${subdomain}`,
 			`WP_SITE_URL=https://${subdomain}`,
-            // Inject proxy-aware HTTPS and site URLs into wp-config
-            // `WORDPRESS_CONFIG_EXTRA=${configExtra}`,
+			// Inject proxy-aware HTTPS and site URLs into wp-config
+			// `WORDPRESS_CONFIG_EXTRA=${configExtra}`,
 		],
 		Labels: {
 			'traefik.enable': 'true',
@@ -114,10 +180,12 @@ export const createSite = async (req, res) => {
 			[`traefik.http.services.${containerId}.loadbalancer.server.port`]: '80',
 			'traefik.docker.network': TRAEFIK_NETWORK,
 			'demoserver.created_at': Date.now().toString(),
-			'demoserver.username': 'admin',
-			'demoserver.password': 'demo',
-			'demoserver.dbname': dbName,
-			'demoserver.dbuser': dbUser,
+			'demoserver.siteurl': `https://${subdomain}`,
+			'demoserver.user': 'admin',
+			'demoserver.password': containerId,
+			'demoserver.db_name': dbName,
+			'demoserver.db_user': dbUser,
+			'demoserver.db_pass': dbPass,
 		},
 		HostConfig: {
 			Memory: 1024 * 1024 * 1024, // 1GB
@@ -134,6 +202,9 @@ export const createSite = async (req, res) => {
 	// Wait until WordPress is fully ready
 	await waitForWordPressReady(container);
 
+	// update admin password as container id
+	await execShell(container, `wp user update admin --user_pass=${containerId} --allow-root --path=/var/www/html`);
+
     // Update URLs via WP‑CLI (no backticks)
     const homeCmd = 'wp option update home "https://' + subdomain + '" --allow-root --path=/var/www/html';
     const homeRes = await execShell(container, homeCmd);
@@ -145,20 +216,29 @@ export const createSite = async (req, res) => {
     const siteurlRes = await execShell(container, siteurlCmd);
     if (siteurlRes.exitCode !== 0) {
         throw new Error("Failed to update siteurl: " + (siteurlRes.stderr || siteurlRes.stdout));
-    }
+	}
+
+	return {
+		containerId,
+		siteurl: `https://${subdomain}`,
+		user: 'admin',
+		password: containerId,
+		db_name: dbName,
+		db_user: dbUser,
+		db_pass: dbPass,
+	}
+	
 
     // Final response
-    res.json({
-        success: true,
-        url: 'https://' + subdomain,
-        username,
-        admin_user: 'admin',
-        admin_pass: 'demo',
-        db: dbName,
-        db_user: dbUser,
-        db_pass: dbPass,
-    });
-
+    // res.json({
+    //     success: true,
+	//     siteurl: `https://${subdomain}`,
+    //     user: 'admin',
+    //     password: containerId,
+    //     db_name: dbName,
+    //     db_user: dbUser,
+    //     db_pass: dbPass,
+	// });
 }
 
 export const dumpDb = async (dbName) => {

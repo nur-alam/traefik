@@ -1,25 +1,33 @@
 import docker from './docker.js';
+import pool from './db/index.js';
+import { DB_ROOT_PASSWORD } from './config/index.js';
 
 // Run every hour
 export default async function cleanupExpiredSites() {
 	console.log('🧹 Running cleanup job...');
-	const { DB_ROOT_PASSWORD } = process.env;
 	try {
 		const containers = await docker.listContainers({ all: true });
 
 		for (const c of containers) {
 			const labels = c.Labels || {};
 			if (!labels['demoserver.created_at']) continue;
-
+			console.log(`ℹ️ Container ${c.Id} created at ${labels['demoserver.created_at']}`);
+			const siteUrl = labels['demoserver.siteurl'];
+			// if siteUrl isn't exists in site table then skip
+			const [site] = await pool.query(
+				`SELECT * FROM sites WHERE siteurl = ?`,
+				[siteUrl]
+			);
+			if (site.length === 0) {	
+				console.log(`ℹ️ Site ${siteUrl} exists in site table, skipping...`);
+				continue;
+			}
 			const createdAt = parseInt(labels['demoserver.created_at'], 10);
 			const ageMinutes = (Date.now() - createdAt) / (1000 * 60);
 
-			if (ageMinutes > 30) {
-				const username = labels['demoserver.username'];
-				const dbName = labels['demoserver.dbname'];
-				const dbUser = labels['demoserver.dbuser'];
-
-				console.log(`🗑️ Removing demo: ${username}`);
+			if (ageMinutes > 60) {
+				const dbName = labels['demoserver.db_name'];
+				const dbUser = labels['demoserver.db_user'];
 
 				// Stop and remove container
 				const container = docker.getContainer(c.Id);
@@ -44,14 +52,27 @@ export default async function cleanupExpiredSites() {
 					}
 				}
 
+				console.log('siteurl ', siteUrl);
+
+				// need to delete entry from sites table 
+				await pool.query(
+					`DELETE FROM sites WHERE siteurl = ?`,
+					[siteUrl]
+				);
+
+				console.log('deleted site ', siteUrl);
+
 				// Drop MySQL database and user
 				const mysqlContainer = docker.getContainer(process.env.MYSQL_CONTAINER_NAME || 'mysql');
+				// delete database and user from mysql container
 				const exec = await mysqlContainer.exec({
 					Cmd: ['mysql', '-uroot', `-p${DB_ROOT_PASSWORD}`, '-e', `DROP DATABASE IF EXISTS ${dbName}; DROP USER IF EXISTS '${dbUser}'@'%'; FLUSH PRIVILEGES;`],
 					AttachStdout: true,
 					AttachStderr: true
 				});
 				exec.start();
+			} else {
+				console.log(`ℹ️ Container ${c.Id} is younger than 30 minutes, skipping...`);
 			}
 		}
 
