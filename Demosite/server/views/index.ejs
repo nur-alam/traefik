@@ -68,17 +68,25 @@
                     body: JSON.stringify({ username: username || undefined })
                 });
                 
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+                
                 const result = await response.json();
                 
                 if (result.success) {
-                    showAlert('success', `Site created successfully! <a href="${result.url}" target="_blank">${result.url}</a>`);
+                    const loginLink = result.login_url || result.url;
+                    showAlert('success', `Site created successfully! <a href="${loginLink}" target="_blank">Click here to auto-login</a>`);
                     document.getElementById('username').value = '';
-                    setTimeout(() => loadSites(), 2000); // Reload sites after 2 seconds
+                    
+                    // Immediately reload sites list
+                    loadSites();
                 } else {
                     showAlert('error', result.error || 'Failed to create site');
                 }
             } catch (error) {
-                showAlert('error', 'Network error: ' + error.message);
+                console.error('Create site error:', error);
+                showAlert('error', 'Error: ' + error.message);
             } finally {
                 createBtn.disabled = false;
                 createBtn.textContent = 'Create Demo Site';
@@ -91,16 +99,22 @@
             
             try {
                 const response = await fetch('/sites');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
                 const data = await response.json();
                 
                 if (data.success) {
                     sites = data.sites;
                     renderSites();
                 } else {
-                    container.innerHTML = '<div class="empty-state"><h3>Error loading sites</h3><p>' + data.error + '</p></div>';
+                    container.innerHTML = '<div class="empty-state"><h3>Error loading sites</h3><p>' + (data.error || 'Unknown error') + '</p></div>';
                 }
             } catch (error) {
-                container.innerHTML = '<div class="empty-state"><h3>Network Error</h3><p>Failed to load sites</p></div>';
+                console.error('Load sites error:', error);
+                container.innerHTML = '<div class="empty-state"><h3>Network Error</h3><p>Failed to load sites: ' + error.message + '</p></div>';
             }
         }
         
@@ -123,9 +137,13 @@
                     <div class="site-info"><strong>Username:</strong> ${site.username}</div>
                     <div class="site-info"><strong>Created:</strong> ${new Date(parseInt(site.created_at)).toLocaleString()}</div>
                     <div class="site-info"><strong>Database:</strong> ${site.dbname}</div>
+                    <div class="site-credentials">
+                        <div class="site-info"><strong>Admin User:</strong> <code>${site.admin_user}</code></div>
+                        <div class="site-info"><strong>Admin Pass:</strong> <code>${site.admin_pass}</code></div>
+                    </div>
                     <div class="site-actions">
                         <a href="${site.url}" target="_blank" class="btn-small btn-visit">Visit Site</a>
-                        <a href="${site.url}/wp-admin" target="_blank" class="btn-small btn-admin">Admin Panel</a>
+                        <a href="${site.login_url}" target="_blank" class="btn-small btn-admin">Auto Login to Admin</a>
                     </div>
                 </div>
             `).join('');

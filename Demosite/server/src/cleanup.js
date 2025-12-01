@@ -27,7 +27,7 @@ export default async function cleanupExpiredSites() {
 				await container.remove({ v: true, force: true });
 
 				// Drop MySQL database and user
-				const mysqlContainer = docker.getContainer('demo-mysql');
+				const mysqlContainer = docker.getContainer('mysql');
 				const exec = await mysqlContainer.exec({
 					Cmd: ['mysql', '-uroot', `-p${DB_ROOT_PASSWORD}`, '-e', `DROP DATABASE IF EXISTS ${dbName}; DROP USER IF EXISTS '${dbUser}'@'%'; FLUSH PRIVILEGES;`],
 					AttachStdout: true,
