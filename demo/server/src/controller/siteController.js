@@ -13,7 +13,7 @@ const GOLDEN_SQL = process.env.GOLDEN_SQL_PATH || 'backups/golden.sql';
 export const getSites = async (req, res) => {
     try {
         // Get all site from db
-        const [rows] = await pool.query(`SELECT * FROM sites`);
+        const [rows] = await pool.query(`SELECT id, siteurl, user, password, db_name, db_user, db_pass, created_at FROM sites ORDER BY created_at DESC`);
         if (rows.length === 0) {
             return res.json({ success: true, sites: [] });
         }
@@ -90,8 +90,11 @@ export const getSite = async (req, res) => {
 			return res.json({ success: true, site: rows[0] });
 		}
 		// Otherwise create site if it doesn't exist
-		const site = await createSite();
-		await pool.query(`INSERT INTO sites (containerid, siteurl, user, password, db_name, db_user, db_pass) VALUES ('${site.containerId}', '${site.siteurl}', '${site.user}', '${site.password}', '${site.dbName}', '${site.dbUser}', '${site.dbPass}')`);
+        const site = await createSite();
+        await pool.query(
+            `INSERT INTO sites (containerid, siteurl, user, password, db_name, db_user, db_pass) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [site.containerId, site.site_url, site.user, site.password, site.db_name, site.db_user, site.db_pass]
+        );
 		
 		// keep pool size up to 2 in background
 		try {
@@ -107,7 +110,7 @@ export const getSite = async (req, res) => {
 			}
 		} catch (_) { }
 		
-		res.json({ success: true, site });
+        res.json({ success: true, site });
 	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}

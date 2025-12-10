@@ -42,22 +42,14 @@ app.get('/', (req, res) => {
 
 
 app.listen(4000, async () => {
-	console.log('🚀 Demoserver backend running on port 4000');
-
-	const containers = await docker.listContainers({ all: true });
-
-	for (const c of containers) {
-		const labels = c.Labels || {};
-		if (!labels['demoserver.created_at']) continue;
-		// console.log('container', c.Id, labels);
-	}
+	console.log('🚀 Demoserver backend running on port 4000 with docker engine');
 
 	goldenImageCreation();
 	sitePoolInitialization();
 });
 
 
-cron.schedule('* */1 * * *', async () => {
+cron.schedule('0 * * * *', async () => {
     try {
         await cleanupExpiredSites();
     } catch (err) {

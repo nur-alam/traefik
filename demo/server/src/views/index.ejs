@@ -128,7 +128,10 @@
                     <div class="site-info"><strong>Database:</strong> ${site.db_name}</div>
                     <div class="site-info"><strong>DB User:</strong> ${site.db_user}</div>
                     <div class="site-info"><strong>DB Pass:</strong> ${site.db_pass}</div>
-                    <div class="site-info"><strong>Created:</strong> ${new Date(parseInt(site.created_at)).toLocaleString()}</div>
+                    <div class="site-info"><strong>Created:</strong> ${new Date(site.created_at).toLocaleString("en-US", {
+                        timeZone: "Asia/Dhaka"
+                    })}</div>
+                    
                     <div class="site-actions">
                         <a href="${site.siteurl}" target="_blank" class="btn-small btn-visit">Visit Site</a>
                         <a href="${site.siteurl}/wp-admin" target="_blank" class="btn-small btn-admin">Admin Panel</a>

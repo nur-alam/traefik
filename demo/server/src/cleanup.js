@@ -25,7 +25,7 @@ export default async function cleanupExpiredSites() {
 			const createdAt = parseInt(labels['demoserver.created_at'], 10);
 			const ageMinutes = (Date.now() - createdAt) / (1000 * 60);
 
-			if (ageMinutes > 60) {
+			if (ageMinutes > 59) {
 				const dbName = labels['demoserver.db_name'];
 				const dbUser = labels['demoserver.db_user'];
 
